@@ -25,7 +25,7 @@
     "commander": "^11.1.0",
     "conf": "^11.0.2",
     "dotenv": "^16.3.1",
-    "open": "^9.1.0"
+    "open": "^10.2.0"
   },
   "devDependencies": {
     "@types/conf": "^3.0.3",
