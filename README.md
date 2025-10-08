@@ -2,28 +2,6 @@
 
 > A comprehensive, enterprise-grade SaaS platform for managing environment variables, secrets, and configuration across multiple environments with advanced security, monitoring, and collaboration features.
 
----
-
-- [Overview](#-overview)
-- [Key Features](#-key-features)
-- [Architecture](#-architecture)
-- [Tech Stack](#-tech-stack)
-- [Prerequisites](#-prerequisites)
-- [Quick Start](#-quick-start)
-- [Project Structure](#-project-structure)
-- [Configuration](#-configuration)
-- [Development](#-development)
-- [Testing](#-testing)
-- [Deployment](#-deployment)
-- [Security](#-security)
-- [Monitoring & Observability](#-monitoring--observability)
-- [API Documentation](#-api-documentation)
-- [CLI Tool](#-cli-tool)
-- [Contributing](#-contributing)
-- [License](#-license)
-
----
-
 ## 🌟 Overview
 
 Environment Configuration Manager is a modern, full-stack SaaS application designed to solve the complex problem of managing environment variables and secrets across multiple environments, teams, and applications. Built with security-first principles, it provides a centralized platform for configuration management with enterprise-grade features.
