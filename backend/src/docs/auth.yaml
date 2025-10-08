@@ -1,0 +1,386 @@
+paths:
+  /api/v1/auth/register:
+    post:
+      tags:
+        - Authentication
+      summary: Register a new user
+      description: Create a new user account with email and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: user@example.com
+                password:
+                  type: string
+                  format: password
+                  minLength: 8
+                  example: SecurePassword123!
+      responses:
+        "201":
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: "#/components/schemas/User"
+                  tokens:
+                    $ref: "#/components/schemas/AuthToken"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error:
+                  code: VALIDATION_INVALID_INPUT
+                  message: Email already exists
+                  requestId: req_123456789
+
+  /api/v1/auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: Login with email and password
+      description: Authenticate and receive JWT tokens
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: user@example.com
+                password:
+                  type: string
+                  format: password
+                  example: SecurePassword123!
+                twoFactorCode:
+                  type: string
+                  description: Required if 2FA is enabled
+                  example: "123456"
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: "#/components/schemas/User"
+                  tokens:
+                    $ref: "#/components/schemas/AuthToken"
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/auth/refresh:
+    post:
+      tags:
+        - Authentication
+      summary: Refresh access token
+      description: Get a new access token using a refresh token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - refreshToken
+              properties:
+                refreshToken:
+                  type: string
+                  example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+      responses:
+        "200":
+          description: Token refreshed successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthToken"
+        "401":
+          description: Invalid or expired refresh token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/auth/logout:
+    post:
+      tags:
+        - Authentication
+      summary: Logout user
+      description: Invalidate the current refresh token
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - refreshToken
+              properties:
+                refreshToken:
+                  type: string
+      responses:
+        "200":
+          description: Logout successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Logged out successfully
+
+  /api/v1/auth/me:
+    get:
+      tags:
+        - Authentication
+      summary: Get current user
+      description: Get the authenticated user's profile
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: User profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/auth/2fa/enable:
+    post:
+      tags:
+        - Authentication
+      summary: Enable two-factor authentication
+      description: Generate a 2FA secret and QR code
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: 2FA secret generated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  secret:
+                    type: string
+                    example: JBSWY3DPEHPK3PXP
+                  qrCode:
+                    type: string
+                    description: Base64 encoded QR code image
+                    example: data:image/png;base64,iVBORw0KGgoAAAANSUhEUg...
+
+  /api/v1/auth/2fa/verify:
+    post:
+      tags:
+        - Authentication
+      summary: Verify and activate 2FA
+      description: Verify the 2FA code to complete setup
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - code
+              properties:
+                code:
+                  type: string
+                  example: "123456"
+      responses:
+        "200":
+          description: 2FA enabled successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Two-factor authentication enabled
+        "400":
+          description: Invalid code
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/auth/2fa/disable:
+    post:
+      tags:
+        - Authentication
+      summary: Disable two-factor authentication
+      description: Turn off 2FA for the account
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - code
+              properties:
+                code:
+                  type: string
+                  example: "123456"
+      responses:
+        "200":
+          description: 2FA disabled successfully
+
+  /api/v1/auth/password-reset/request:
+    post:
+      tags:
+        - Authentication
+      summary: Request password reset
+      description: Send a password reset email
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: user@example.com
+      responses:
+        "200":
+          description: Reset email sent
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Password reset email sent
+
+  /api/v1/auth/password-reset/confirm:
+    post:
+      tags:
+        - Authentication
+      summary: Reset password
+      description: Complete password reset with token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - token
+                - newPassword
+              properties:
+                token:
+                  type: string
+                  example: reset_token_abc123
+                newPassword:
+                  type: string
+                  format: password
+                  minLength: 8
+                  example: NewSecurePassword123!
+      responses:
+        "200":
+          description: Password reset successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Password reset successfully
+
+  /api/v1/auth/google:
+    get:
+      tags:
+        - Authentication
+      summary: Login with Google
+      description: Initiate Google OAuth flow
+      responses:
+        "302":
+          description: Redirect to Google OAuth
+
+  /api/v1/auth/google/callback:
+    get:
+      tags:
+        - Authentication
+      summary: Google OAuth callback
+      description: Handle Google OAuth callback
+      parameters:
+        - in: query
+          name: code
+          schema:
+            type: string
+          required: true
+      responses:
+        "302":
+          description: Redirect to frontend with tokens
+
+  /api/v1/auth/github:
+    get:
+      tags:
+        - Authentication
+      summary: Login with GitHub
+      description: Initiate GitHub OAuth flow
+      responses:
+        "302":
+          description: Redirect to GitHub OAuth
+
+  /api/v1/auth/github/callback:
+    get:
+      tags:
+        - Authentication
+      summary: GitHub OAuth callback
+      description: Handle GitHub OAuth callback
+      parameters:
+        - in: query
+          name: code
+          schema:
+            type: string
+          required: true
+      responses:
+        "302":
+          description: Redirect to frontend with tokens

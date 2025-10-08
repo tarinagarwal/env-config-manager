@@ -1,0 +1,21 @@
+{
+  "name": "env-config-manager",
+  "version": "1.0.0",
+  "description": "Environment Configuration Manager - SaaS platform for managing environment variables and secrets",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "frontend",
+    "cli"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "npm run dev --workspace=backend",
+    "dev:frontend": "npm run dev --workspace=frontend",
+    "build": "npm run build --workspaces",
+    "test": "npm run test --workspaces"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

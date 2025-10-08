@@ -1,0 +1,442 @@
+paths:
+  /api/v1/environments/{environmentId}/variables:
+    get:
+      tags:
+        - Variables
+      summary: List variables
+      description: Get all variables in an environment
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - in: path
+          name: environmentId
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: includeDeleted
+          schema:
+            type: boolean
+            default: false
+          description: Include soft-deleted variables
+      responses:
+        "200":
+          description: List of variables
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Variable"
+              example:
+                - id: "507f1f77bcf86cd799439011"
+                  environmentId: "507f1f77bcf86cd799439012"
+                  key: DATABASE_URL
+                  value: "***MASKED***"
+                  isSecret: true
+                  rotationEnabled: false
+                  createdAt: "2024-01-01T00:00:00Z"
+                - id: "507f1f77bcf86cd799439013"
+                  environmentId: "507f1f77bcf86cd799439012"
+                  key: API_ENDPOINT
+                  value: "https://api.example.com"
+                  isSecret: false
+                  rotationEnabled: false
+                  createdAt: "2024-01-01T00:00:00Z"
+
+    post:
+      tags:
+        - Variables
+      summary: Create variable
+      description: Create a new variable in an environment
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - in: path
+          name: environmentId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - key
+                - value
+              properties:
+                key:
+                  type: string
+                  example: DATABASE_URL
+                  pattern: "^[A-Z][A-Z0-9_]*$"
+                  description: Variable key (uppercase with underscores)
+                value:
+                  type: string
+                  example: postgresql://localhost:5432/mydb
+                isSecret:
+                  type: boolean
+                  default: false
+                  description: Whether to encrypt the value
+                rotationEnabled:
+                  type: boolean
+                  default: false
+                  description: Enable automatic rotation
+                rotationIntervalDays:
+                  type: integer
+                  minimum: 1
+                  example: 90
+                  description: Days between rotations (if enabled)
+      responses:
+        "201":
+          description: Variable created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Variable"
+        "400":
+          description: Invalid input or duplicate key
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error:
+                  code: VALIDATION_DUPLICATE_KEY
+                  message: Variable with this key already exists
+
+  /api/v1/variables/{variableId}:
+    get:
+      tags:
+        - Variables
+      summary: Get variable
+      description: Get a specific variable by ID (secrets are masked by default)
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - in: path
+          name: variableId
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: reveal
+          schema:
+            type: boolean
+            default: false
+          description: Reveal secret value (requires permission)
+      responses:
+        "200":
+          description: Variable details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Variable"
+        "404":
+          description: Variable not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    patch:
+      tags:
+        - Variables
+      summary: Update variable
+      description: Update a variable's value or settings
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - in: path
+          name: variableId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                value:
+                  type: string
+                  example: new-value
+                rotationEnabled:
+                  type: boolean
+                rotationIntervalDays:
+                  type: integer
+      responses:
+        "200":
+          description: Variable updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Variable"
+        "403":
+          description: Insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    delete:
+      tags:
+        - Variables
+      summary: Delete variable
+      description: Soft-delete a variable (maintains history)
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - in: path
+          name: variableId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Variable deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Variable deleted successfully
+
+  /api/v1/variables/bulk/copy:
+    post:
+      tags:
+        - Variables
+      summary: Bulk copy variables
+      description: Copy multiple variables from one environment to another
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - sourceEnvironmentId
+                - targetEnvironmentId
+                - variableIds
+              properties:
+                sourceEnvironmentId:
+                  type: string
+                  example: "507f1f77bcf86cd799439011"
+                targetEnvironmentId:
+                  type: string
+                  example: "507f1f77bcf86cd799439012"
+                variableIds:
+                  type: array
+                  items:
+                    type: string
+                  example:
+                    ["507f1f77bcf86cd799439013", "507f1f77bcf86cd799439014"]
+      responses:
+        "200":
+          description: Variables copied successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: 5 variables copied successfully
+                  copiedCount:
+                    type: integer
+                    example: 5
+
+  /api/v1/variables/bulk/update:
+    post:
+      tags:
+        - Variables
+      summary: Bulk update variables
+      description: Update multiple variables at once
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - updates
+              properties:
+                updates:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - variableId
+                      - value
+                    properties:
+                      variableId:
+                        type: string
+                      value:
+                        type: string
+                  example:
+                    - variableId: "507f1f77bcf86cd799439011"
+                      value: "new-value-1"
+                    - variableId: "507f1f77bcf86cd799439012"
+                      value: "new-value-2"
+      responses:
+        "200":
+          description: Variables updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: 2 variables updated successfully
+                  updatedCount:
+                    type: integer
+                    example: 2
+
+  /api/v1/variables/{variableId}/history:
+    get:
+      tags:
+        - Variables
+      summary: Get variable history
+      description: Get version history for a specific variable
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - in: path
+          name: variableId
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Variable version history
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/VariableVersion"
+                  pagination:
+                    type: object
+                    properties:
+                      page:
+                        type: integer
+                      limit:
+                        type: integer
+                      total:
+                        type: integer
+                      totalPages:
+                        type: integer
+
+  /api/v1/environments/{environmentId}/history:
+    get:
+      tags:
+        - Variables
+      summary: Get environment history
+      description: Get version history for all variables in an environment
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - in: path
+          name: environmentId
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+        - in: query
+          name: userId
+          schema:
+            type: string
+          description: Filter by user who made changes
+        - in: query
+          name: variableKey
+          schema:
+            type: string
+          description: Filter by variable key
+      responses:
+        "200":
+          description: Environment version history
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/VariableVersion"
+                  pagination:
+                    type: object
+
+  /api/v1/variables/{variableId}/rollback/{versionId}:
+    post:
+      tags:
+        - Variables
+      summary: Rollback variable
+      description: Restore a variable to a previous version
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - in: path
+          name: variableId
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: versionId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Variable rolled back successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Variable"
+        "403":
+          description: Insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"

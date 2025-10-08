@@ -1,0 +1,216 @@
+paths:
+  /api/v1/billing/subscription:
+    get:
+      tags:
+        - Billing
+      summary: Get subscription
+      description: Get the current user's subscription details
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Subscription details
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Subscription"
+                  - type: object
+                    properties:
+                      limits:
+                        type: object
+                        properties:
+                          projects:
+                            type: integer
+                            example: 5
+                          environments:
+                            type: integer
+                            example: -1
+                            description: -1 means unlimited
+                          apiCallsPerHour:
+                            type: integer
+                            example: 1000
+                      usage:
+                        type: object
+                        properties:
+                          projects:
+                            type: integer
+                            example: 3
+                          apiCallsThisHour:
+                            type: integer
+                            example: 45
+
+    post:
+      tags:
+        - Billing
+      summary: Create subscription
+      description: Create a new subscription (upgrade from free)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - plan
+              properties:
+                plan:
+                  type: string
+                  enum: [pro, team, enterprise]
+                  example: pro
+                paymentMethodId:
+                  type: string
+                  description: Stripe payment method ID
+      responses:
+        "201":
+          description: Subscription created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Subscription"
+
+    patch:
+      tags:
+        - Billing
+      summary: Update subscription
+      description: Upgrade or downgrade subscription plan
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - plan
+              properties:
+                plan:
+                  type: string
+                  enum: [free, pro, team, enterprise]
+                  example: team
+      responses:
+        "200":
+          description: Subscription updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Subscription"
+
+    delete:
+      tags:
+        - Billing
+      summary: Cancel subscription
+      description: Cancel the current subscription (downgrades to free at period end)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Subscription canceled successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Subscription will be canceled at the end of the billing period
+                  subscription:
+                    $ref: "#/components/schemas/Subscription"
+
+  /api/v1/billing/plans:
+    get:
+      tags:
+        - Billing
+      summary: List available plans
+      description: Get all available subscription plans with features and pricing
+      responses:
+        "200":
+          description: List of plans
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                      example: pro
+                    name:
+                      type: string
+                      example: Pro
+                    price:
+                      type: number
+                      example: 29
+                    currency:
+                      type: string
+                      example: USD
+                    interval:
+                      type: string
+                      example: month
+                    features:
+                      type: object
+                      properties:
+                        projects:
+                          type: integer
+                          example: 5
+                        environments:
+                          type: integer
+                          example: -1
+                        apiCallsPerHour:
+                          type: integer
+                          example: 1000
+                        auditLogRetentionDays:
+                          type: integer
+                          example: 30
+                        support:
+                          type: string
+                          example: Email
+              example:
+                - id: free
+                  name: Free
+                  price: 0
+                  currency: USD
+                  interval: month
+                  features:
+                    projects: 1
+                    environments: 3
+                    apiCallsPerHour: 100
+                    auditLogRetentionDays: 30
+                    support: Community
+                - id: pro
+                  name: Pro
+                  price: 29
+                  currency: USD
+                  interval: month
+                  features:
+                    projects: 5
+                    environments: -1
+                    apiCallsPerHour: 1000
+                    auditLogRetentionDays: 30
+                    support: Email
+                - id: team
+                  name: Team
+                  price: 99
+                  currency: USD
+                  interval: month
+                  features:
+                    projects: -1
+                    environments: -1
+                    apiCallsPerHour: 5000
+                    auditLogRetentionDays: 90
+                    support: Priority Email
+                - id: enterprise
+                  name: Enterprise
+                  price: null
+                  currency: USD
+                  interval: month
+                  features:
+                    projects: -1
+                    environments: -1
+                    apiCallsPerHour: 50000
+                    auditLogRetentionDays: 730
+                    support: Dedicated

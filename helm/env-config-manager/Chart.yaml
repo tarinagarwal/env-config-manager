@@ -1,0 +1,16 @@
+apiVersion: v2
+name: env-config-manager
+description: A Helm chart for Environment Configuration Manager
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+keywords:
+  - environment-variables
+  - secrets-management
+  - configuration
+home: https://github.com/your-org/env-config-manager
+sources:
+  - https://github.com/your-org/env-config-manager
+maintainers:
+  - name: Your Team
+    email: team@example.com

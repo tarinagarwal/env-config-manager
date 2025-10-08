@@ -1,0 +1,208 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches: [main]
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: "20.x"
+
+jobs:
+  deploy-production:
+    name: Deploy to Production Environment
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://env-config-manager.com
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Extract version from tag
+        id: version
+        run: |
+          if [[ $GITHUB_REF == refs/tags/* ]]; then
+            echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          else
+            echo "VERSION=prod-${{ github.sha }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build and push backend image to ECR
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: env-config-backend
+          IMAGE_TAG: ${{ steps.version.outputs.VERSION }}
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG ./backend
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+
+      - name: Build and push frontend image to ECR
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: env-config-frontend
+          IMAGE_TAG: ${{ steps.version.outputs.VERSION }}
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
+            --build-arg VITE_API_URL=${{ secrets.PRODUCTION_API_URL }} \
+            ./frontend
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+
+      - name: Build and push workers image to ECR
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: env-config-workers
+          IMAGE_TAG: ${{ steps.version.outputs.VERSION }}
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG ./workers
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: "latest"
+
+      - name: Configure kubectl
+        run: |
+          aws eks update-kubeconfig --name ${{ secrets.EKS_CLUSTER_NAME }} --region ${{ secrets.AWS_REGION }}
+
+      - name: Create database backup
+        env:
+          DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+        run: |
+          BACKUP_NAME="backup-$(date +%Y%m%d-%H%M%S)"
+          echo "Creating backup: $BACKUP_NAME"
+          # Add your backup command here based on your database setup
+          # For MongoDB Atlas, you might use mongodump or trigger a snapshot via API
+
+      - name: Run database migrations
+        env:
+          DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+        run: |
+          npm ci
+          cd backend
+          npm run prisma:generate
+          npx prisma db push
+
+      - name: Update Kubernetes deployment with blue-green strategy
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ steps.version.outputs.VERSION }}
+        run: |
+          # Update deployments
+          kubectl set image deployment/backend backend=$ECR_REGISTRY/env-config-backend:$IMAGE_TAG -n production
+          kubectl set image deployment/frontend frontend=$ECR_REGISTRY/env-config-frontend:$IMAGE_TAG -n production
+          kubectl set image deployment/workers workers=$ECR_REGISTRY/env-config-workers:$IMAGE_TAG -n production
+
+          # Wait for rollout to complete
+          kubectl rollout status deployment/backend -n production --timeout=10m
+          kubectl rollout status deployment/frontend -n production --timeout=10m
+          kubectl rollout status deployment/workers -n production --timeout=10m
+
+      - name: Run smoke tests
+        run: |
+          sleep 30
+
+          # Health check
+          curl -f ${{ secrets.PRODUCTION_API_URL }}/health || exit 1
+
+          # API endpoint check
+          curl -f ${{ secrets.PRODUCTION_API_URL }}/api/v1/health || exit 1
+
+          # Frontend check
+          curl -f https://env-config-manager.com || exit 1
+
+          echo "All smoke tests passed"
+
+      - name: Run post-deployment verification
+        run: |
+          # Check pod status
+          kubectl get pods -n production
+
+          # Check for any errors in recent logs
+          kubectl logs -n production -l app=backend --tail=50 | grep -i error || true
+
+          echo "Post-deployment verification complete"
+
+      - name: Rollback on failure
+        if: failure()
+        run: |
+          echo "Deployment failed, initiating rollback..."
+          kubectl rollout undo deployment/backend -n production
+          kubectl rollout undo deployment/frontend -n production
+          kubectl rollout undo deployment/workers -n production
+
+          kubectl rollout status deployment/backend -n production --timeout=5m
+          kubectl rollout status deployment/frontend -n production --timeout=5m
+          kubectl rollout status deployment/workers -n production --timeout=5m
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref_name }}
+          release_name: Release ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+
+      - name: Notify deployment success
+        if: success()
+        uses: 8398a7/action-slack@v3
+        with:
+          status: custom
+          custom_payload: |
+            {
+              text: "🚀 Production deployment successful",
+              attachments: [{
+                color: 'good',
+                text: `Version: ${{ steps.version.outputs.VERSION }}\nCommit: ${{ github.sha }}\nAuthor: ${{ github.actor }}`
+              }]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+      - name: Notify deployment failure
+        if: failure()
+        uses: 8398a7/action-slack@v3
+        with:
+          status: custom
+          custom_payload: |
+            {
+              text: "🚨 Production deployment failed - ROLLBACK INITIATED",
+              attachments: [{
+                color: 'danger',
+                text: `Version: ${{ steps.version.outputs.VERSION }}\nCommit: ${{ github.sha }}\nAuthor: ${{ github.actor }}`
+              }]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

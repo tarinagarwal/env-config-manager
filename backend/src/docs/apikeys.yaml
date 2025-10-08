@@ -1,0 +1,127 @@
+paths:
+  /api/v1/api-keys:
+    get:
+      tags:
+        - API Keys
+      summary: List API keys
+      description: Get all API keys for the authenticated user
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of API keys
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ApiKey"
+              example:
+                - id: "507f1f77bcf86cd799439011"
+                  name: Production API Key
+                  scopes: ["projects:read", "variables:read"]
+                  lastUsedAt: "2024-01-01T12:00:00Z"
+                  expiresAt: null
+                  createdAt: "2024-01-01T00:00:00Z"
+
+    post:
+      tags:
+        - API Keys
+      summary: Create API key
+      description: Generate a new API key with specified scopes
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                  example: Production API Key
+                scopes:
+                  type: array
+                  items:
+                    type: string
+                  example:
+                    [
+                      "projects:read",
+                      "projects:write",
+                      "variables:read",
+                      "variables:write",
+                    ]
+                  description: |
+                    Available scopes:
+                    - projects:read - Read projects
+                    - projects:write - Create/update/delete projects
+                    - variables:read - Read variables
+                    - variables:write - Create/update/delete variables
+                    - environments:read - Read environments
+                    - environments:write - Create/delete environments
+                    - sync:trigger - Trigger platform syncs
+                expiresAt:
+                  type: string
+                  format: date-time
+                  description: Optional expiration date
+      responses:
+        "201":
+          description: API key created successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiKey"
+                  - type: object
+                    properties:
+                      key:
+                        type: string
+                        description: The actual API key (only shown once)
+                        example: eck_live_abc123def456ghi789jkl012mno345pqr678stu901
+              example:
+                id: "507f1f77bcf86cd799439011"
+                name: Production API Key
+                key: eck_live_abc123def456ghi789jkl012mno345pqr678stu901
+                scopes: ["projects:read", "variables:read"]
+                createdAt: "2024-01-01T00:00:00Z"
+        "400":
+          description: Invalid scopes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/api-keys/{keyId}:
+    delete:
+      tags:
+        - API Keys
+      summary: Delete API key
+      description: Revoke an API key
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: keyId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: API key deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: API key deleted successfully
+        "404":
+          description: API key not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"

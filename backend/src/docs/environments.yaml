@@ -1,0 +1,120 @@
+paths:
+  /api/v1/projects/{projectId}/environments:
+    get:
+      tags:
+        - Environments
+      summary: List environments
+      description: Get all environments in a project
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - in: path
+          name: projectId
+          required: true
+          schema:
+            type: string
+          description: Project ID
+      responses:
+        "200":
+          description: List of environments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Environment"
+
+    post:
+      tags:
+        - Environments
+      summary: Create environment
+      description: Create a new environment in a project (subject to plan limits)
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - in: path
+          name: projectId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                  example: production
+                  description: Environment name (e.g., dev, staging, production)
+      responses:
+        "201":
+          description: Environment created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Environment"
+        "400":
+          description: Invalid input or duplicate name
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error:
+                  code: VALIDATION_DUPLICATE_KEY
+                  message: Environment with this name already exists
+        "403":
+          description: Plan limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error:
+                  code: FORBIDDEN_PLAN_LIMIT
+                  message: Environment limit reached for your plan
+
+  /api/v1/environments/{environmentId}:
+    delete:
+      tags:
+        - Environments
+      summary: Delete environment
+      description: Delete an environment and all its variables (requires admin role)
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - in: path
+          name: environmentId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Environment deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Environment deleted successfully
+        "403":
+          description: Insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Environment not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"

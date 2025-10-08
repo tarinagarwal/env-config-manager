@@ -1,0 +1,303 @@
+# Default values for env-config-manager
+# This is a YAML-formatted file.
+
+# Global configuration
+global:
+  imagePullSecrets: []
+  storageClass: ""
+
+# Image configuration
+image:
+  registry: docker.io
+  repository: your-org/env-config-manager
+  pullPolicy: IfNotPresent
+  tag: "1.0.0"
+
+# Backend API configuration
+backend:
+  enabled: true
+  replicaCount: 2
+
+  image:
+    repository: your-org/env-config-backend
+    tag: "1.0.0"
+
+  service:
+    type: ClusterIP
+    port: 3000
+    targetPort: 3000
+
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+    requests:
+      cpu: 500m
+      memory: 512Mi
+
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+
+  env:
+    NODE_ENV: production
+    PORT: "3000"
+
+  # Environment variables from secrets
+  envFrom:
+    - secretRef:
+        name: env-config-secrets
+    - configMapRef:
+        name: env-config-config
+
+  livenessProbe:
+    httpGet:
+      path: /health
+      port: 3000
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+
+  readinessProbe:
+    httpGet:
+      path: /health
+      port: 3000
+    initialDelaySeconds: 10
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 3
+
+# Worker configuration
+worker:
+  enabled: true
+  replicaCount: 2
+
+  image:
+    repository: your-org/env-config-worker
+    tag: "1.0.0"
+
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 250m
+      memory: 256Mi
+
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 70
+
+  envFrom:
+    - secretRef:
+        name: env-config-secrets
+    - configMapRef:
+        name: env-config-config
+
+# Frontend configuration
+frontend:
+  enabled: true
+  replicaCount: 2
+
+  image:
+    repository: your-org/env-config-frontend
+    tag: "1.0.0"
+
+  service:
+    type: ClusterIP
+    port: 8080
+    targetPort: 8080
+
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 70
+
+  livenessProbe:
+    httpGet:
+      path: /health
+      port: 8080
+    initialDelaySeconds: 10
+    periodSeconds: 10
+
+  readinessProbe:
+    httpGet:
+      path: /health
+      port: 8080
+    initialDelaySeconds: 5
+    periodSeconds: 5
+
+# MongoDB configuration
+mongodb:
+  enabled: true
+  architecture: replicaset
+  replicaCount: 3
+
+  auth:
+    enabled: true
+    rootUser: admin
+    rootPassword: "" # Set via --set or secrets
+    database: env-config-manager
+
+  persistence:
+    enabled: true
+    size: 20Gi
+    storageClass: ""
+
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 2Gi
+    requests:
+      cpu: 500m
+      memory: 1Gi
+
+  # Use external MongoDB
+  external:
+    enabled: false
+    host: ""
+    port: 27017
+    database: env-config-manager
+    username: ""
+    password: ""
+
+# Redis configuration
+redis:
+  enabled: true
+  architecture: standalone
+
+  auth:
+    enabled: true
+    password: "" # Set via --set or secrets
+
+  master:
+    persistence:
+      enabled: true
+      size: 8Gi
+      storageClass: ""
+
+    resources:
+      limits:
+        cpu: 500m
+        memory: 512Mi
+      requests:
+        cpu: 250m
+        memory: 256Mi
+
+  # Use external Redis
+  external:
+    enabled: false
+    host: ""
+    port: 6379
+    password: ""
+
+# Ingress configuration
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+
+  hosts:
+    - host: env-config.example.com
+      paths:
+        - path: /api
+          pathType: Prefix
+          backend: backend
+        - path: /
+          pathType: Prefix
+          backend: frontend
+
+  tls:
+    - secretName: env-config-tls
+      hosts:
+        - env-config.example.com
+
+# Service Account
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+# Pod Security Context
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1001
+  fsGroup: 1001
+  seccompProfile:
+    type: RuntimeDefault
+
+# Security Context
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: false
+
+# Network Policy
+networkPolicy:
+  enabled: true
+  policyTypes:
+    - Ingress
+    - Egress
+
+# Pod Disruption Budget
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+# Secrets (create via kubectl or external secrets operator)
+secrets:
+  create: true
+  data:
+    {}
+    # JWT_SECRET: ""
+    # JWT_REFRESH_SECRET: ""
+    # ENCRYPTION_KEY: ""
+    # MONGO_ROOT_PASSWORD: ""
+    # REDIS_PASSWORD: ""
+
+# ConfigMap
+configMap:
+  create: true
+  data:
+    AWS_REGION: us-east-1
+    SMTP_PORT: "587"
+    FRONTEND_URL: https://env-config.example.com
+    ENABLE_LDAP: "false"
+    ENABLE_SAML: "false"
+
+# Monitoring
+monitoring:
+  enabled: false
+  serviceMonitor:
+    enabled: false
+    interval: 30s
+    scrapeTimeout: 10s
+
+# Backup configuration
+backup:
+  enabled: false
+  schedule: "0 2 * * *"
+  retention: 7
+  storageClass: ""
+  size: 50Gi

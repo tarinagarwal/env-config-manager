@@ -1,0 +1,169 @@
+# ===================================
+# Dependencies
+# ===================================
+node_modules/
+.pnp
+.pnp.js
+.yarn/
+.npm/
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# ===================================
+# Testing & Coverage
+# ===================================
+coverage/
+.nyc_output/
+*.lcov
+test-results/
+junit.xml
+
+# ===================================
+# Build Output
+# ===================================
+dist/
+build/
+out/
+.next/
+.nuxt/
+.cache/
+.parcel-cache/
+.vite/
+
+# ===================================
+# Environment Variables
+# ===================================
+.env
+.env.local
+.env.*.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.staging
+
+# Keep example files
+!.env.example
+!.env.production.example
+
+# ===================================
+# Logs
+# ===================================
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+pnpm-debug.log*
+
+# ===================================
+# Operating System
+# ===================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# ===================================
+# IDE & Editors
+# ===================================
+.vscode/
+.idea/
+*.swp
+*.swo
+*.swn
+*~
+.project
+.classpath
+.settings/
+*.sublime-project
+*.sublime-workspace
+.history/
+
+# ===================================
+# Database
+# ===================================
+# Prisma
+prisma/migrations/
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# MongoDB
+data/
+mongo-data/
+
+# Redis
+dump.rdb
+appendonly.aof
+
+# PostgreSQL
+*.pgsql
+
+# ===================================
+# Docker
+# ===================================
+docker-compose.override.yml
+.dockerignore
+
+# ===================================
+# Kubernetes & Helm
+# ===================================
+*.kubeconfig
+secrets.yaml
+values.local.yaml
+
+# ===================================
+# Cloud Provider Credentials
+# ===================================
+.aws/
+.gcp/
+.azure/
+credentials.json
+service-account.json
+
+# ===================================
+# SSL/TLS Certificates
+# ===================================
+*.pem
+*.key
+*.crt
+*.csr
+*.p12
+*.pfx
+ssl/
+
+# ===================================
+# Monitoring & Observability
+# ===================================
+prometheus-data/
+grafana-data/
+jaeger-data/
+
+# ===================================
+# Temporary Files
+# ===================================
+tmp/
+temp/
+*.tmp
+*.bak
+*.backup
+*.old
+
+# ===================================
+# Kiro IDE
+# ===================================
+.kiro/
+
+# ===================================
+# Misc
+# ===================================
+.turbo/
+.vercel/
+.netlify/

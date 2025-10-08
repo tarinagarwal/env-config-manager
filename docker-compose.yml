@@ -1,0 +1,32 @@
+version: "3.8"
+
+services:
+  mongodb:
+    image: mongo:7
+    container_name: env-config-mongodb
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: env-config-manager
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - env-config-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: env-config-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - env-config-network
+
+volumes:
+  mongodb_data:
+  redis_data:
+
+networks:
+  env-config-network:
+    driver: bridge

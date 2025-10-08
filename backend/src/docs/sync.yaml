@@ -1,0 +1,210 @@
+paths:
+  /api/v1/projects/{projectId}/connections:
+    get:
+      tags:
+        - Platform Sync
+      summary: List platform connections
+      description: Get all platform connections for a project
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - in: path
+          name: projectId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of platform connections
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PlatformConnection"
+
+    post:
+      tags:
+        - Platform Sync
+      summary: Create platform connection
+      description: Connect a deployment platform to sync variables
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: projectId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - platform
+                - credentials
+                - targetResource
+              properties:
+                platform:
+                  type: string
+                  enum: [vercel, aws-ssm, aws-secrets-manager, netlify, heroku]
+                  example: vercel
+                credentials:
+                  type: object
+                  description: Platform-specific credentials (will be encrypted)
+                  example:
+                    apiToken: vercel_token_abc123
+                targetResource:
+                  type: string
+                  example: prj_abc123
+                  description: Platform-specific resource ID (e.g., Vercel project ID)
+      responses:
+        "201":
+          description: Connection created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlatformConnection"
+        "400":
+          description: Invalid credentials or platform
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/connections/{connectionId}:
+    delete:
+      tags:
+        - Platform Sync
+      summary: Delete platform connection
+      description: Remove a platform connection
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: connectionId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Connection deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Connection deleted successfully
+
+  /api/v1/connections/{connectionId}/sync:
+    post:
+      tags:
+        - Platform Sync
+      summary: Trigger manual sync
+      description: Manually sync variables to a connected platform
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - in: path
+          name: connectionId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - environmentId
+              properties:
+                environmentId:
+                  type: string
+                  example: "507f1f77bcf86cd799439011"
+      responses:
+        "200":
+          description: Sync completed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  syncedCount:
+                    type: integer
+                    example: 15
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        key:
+                          type: string
+                        error:
+                          type: string
+        "502":
+          description: Platform sync failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error:
+                  code: SYNC_PLATFORM_ERROR
+                  message: Failed to sync to platform
+                  details:
+                    platform: vercel
+                    error: Authentication failed
+
+  /api/v1/connections/{connectionId}/status:
+    get:
+      tags:
+        - Platform Sync
+      summary: Get sync status
+      description: Get the current sync status and history for a connection
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - in: path
+          name: connectionId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Sync status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  connection:
+                    $ref: "#/components/schemas/PlatformConnection"
+                  recentSyncs:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        environmentId:
+                          type: string
+                        success:
+                          type: boolean
+                        syncedCount:
+                          type: integer
+                        errorMessage:
+                          type: string
+                        createdAt:
+                          type: string
+                          format: date-time
